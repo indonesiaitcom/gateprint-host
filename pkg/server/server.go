@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,14 +12,27 @@ import (
 	"github.com/mkhsnw/gateprint/pkg/middleware"
 	"github.com/mkhsnw/gateprint/pkg/service"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"crypto/subtle"
 )
 
 var currentAppKey string
+var currentServerPort string
+var currentAllowedOrigin string
+var activeServer *http.Server
+var appCtx context.Context
 
 func InitServerState() {
 	config.InitStore()
 	data := config.LoadData()
 	currentAppKey = data.AppKey
+	currentServerPort = data.ServerPort
+	currentAllowedOrigin = data.AllowedOrigin
+	if currentServerPort == "" {
+		currentServerPort = "9100"
+	}
+	if currentAllowedOrigin == "" {
+		currentAllowedOrigin = "*"
+	}
 }
 
 func SetAppKey(key string) {
@@ -34,6 +48,43 @@ func GetAppKey() string {
 	return currentAppKey
 }
 
+func SetServerPort(port string) {
+	currentServerPort = port
+
+	// Persist
+	data := config.LoadData()
+	data.ServerPort = port
+	config.SaveData(data)
+
+	if appCtx != nil {
+		StartServer(appCtx) // Restart server on new port
+	}
+}
+
+func GetServerPort() string {
+	if currentServerPort == "" {
+		InitServerState()
+	}
+	return currentServerPort
+}
+
+func SetAllowedOrigin(origin string) {
+	currentAllowedOrigin = origin
+	data := config.LoadData()
+	data.AllowedOrigin = origin
+	config.SaveData(data)
+	if appCtx != nil {
+		StartServer(appCtx)
+	}
+}
+
+func GetAllowedOrigin() string {
+	if currentAllowedOrigin == "" {
+		InitServerState()
+	}
+	return currentAllowedOrigin
+}
+
 func EmitLog(ctx context.Context, level, message string) {
 	if ctx == nil {
 		fmt.Printf("[%s] %s\n", level, message)
@@ -46,21 +97,28 @@ func EmitLog(ctx context.Context, level, message string) {
 }
 
 func StartServer(ctx context.Context) {
+	appCtx = ctx
 	InitServerState()
-	cfg := config.LoadConfig()
 
-	port := cfg.PORT
+	port := currentServerPort
+
+	if activeServer != nil {
+		EmitLog(ctx, "INFO", "Stopping existing server...")
+		activeServer.Shutdown(context.Background())
+		time.Sleep(200 * time.Millisecond) // Let port release
+	}
 
 	gin.SetMode(gin.ReleaseMode)
-	router := gin.Default()
-	router.Use(middleware.CorsMiddleware(cfg.ALLOWED_ORIGIN))
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(middleware.CorsMiddleware(currentAllowedOrigin))
 
 	// Auth Middleware
 	router.Use(func(c *gin.Context) {
-		// Only check POST /print requests or you can check all. We check all.
 		if currentAppKey != "" && c.Request.Method != "OPTIONS" {
 			reqKey := c.GetHeader("App-Key")
-			if reqKey != currentAppKey {
+			// Use constant time compare to prevent timing attacks
+			if subtle.ConstantTimeCompare([]byte(reqKey), []byte(currentAppKey)) != 1 {
 				EmitLog(ctx, "ERROR", fmt.Sprintf("Unauthorized access attempt from %s (Invalid App-Key)", c.ClientIP()))
 				c.JSON(401, gin.H{"error": "Unauthorized: Invalid App-Key"})
 				c.Abort()
@@ -94,8 +152,15 @@ func StartServer(ctx context.Context) {
 		c.JSON(200, gin.H{"message": "Success"})
 	})
 
-	EmitLog(ctx, "INFO", "Thermal Bridge started on port :"+port)
-	if err := router.Run(":" + port); err != nil {
-		EmitLog(ctx, "ERROR", fmt.Sprintf("Failed to start server: %v", err))
+	activeServer = &http.Server{
+		Addr:    ":" + port,
+		Handler: router,
 	}
+
+	EmitLog(ctx, "INFO", "Gateprint server started on port :"+port)
+	go func() {
+		if err := activeServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			EmitLog(ctx, "ERROR", fmt.Sprintf("Failed to start server: %v", err))
+		}
+	}()
 }

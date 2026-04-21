@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "gateprint-client": "github:mkhsnw/gateprint-client"
+  },
+  "type": "module"
+}

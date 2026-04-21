@@ -10,6 +10,8 @@ import (
 type AppData struct {
 	AppKey         string `json:"app_key"`
 	DefaultPrinter string `json:"default_printer"`
+	ServerPort     string `json:"server_port"`
+	AllowedOrigin  string `json:"allowed_origin"`
 }
 
 var dataFilePath = "thermal_data.json"
