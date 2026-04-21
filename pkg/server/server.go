@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"time"
 
+	"crypto/subtle"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mkhsnw/gateprint/pkg/config"
 	"github.com/mkhsnw/gateprint/pkg/entity"
 	"github.com/mkhsnw/gateprint/pkg/middleware"
 	"github.com/mkhsnw/gateprint/pkg/service"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"crypto/subtle"
 )
 
 var currentAppKey string
 var currentServerPort string
-var currentAllowedOrigin string
 var activeServer *http.Server
 var appCtx context.Context
 
@@ -26,19 +26,14 @@ func InitServerState() {
 	data := config.LoadData()
 	currentAppKey = data.AppKey
 	currentServerPort = data.ServerPort
-	currentAllowedOrigin = data.AllowedOrigin
 	if currentServerPort == "" {
 		currentServerPort = "9100"
-	}
-	if currentAllowedOrigin == "" {
-		currentAllowedOrigin = "*"
 	}
 }
 
 func SetAppKey(key string) {
 	currentAppKey = key
 
-	// Persist
 	data := config.LoadData()
 	data.AppKey = key
 	config.SaveData(data)
@@ -57,7 +52,7 @@ func SetServerPort(port string) {
 	config.SaveData(data)
 
 	if appCtx != nil {
-		StartServer(appCtx) // Restart server on new port
+		StartServer(appCtx)
 	}
 }
 
@@ -66,23 +61,6 @@ func GetServerPort() string {
 		InitServerState()
 	}
 	return currentServerPort
-}
-
-func SetAllowedOrigin(origin string) {
-	currentAllowedOrigin = origin
-	data := config.LoadData()
-	data.AllowedOrigin = origin
-	config.SaveData(data)
-	if appCtx != nil {
-		StartServer(appCtx)
-	}
-}
-
-func GetAllowedOrigin() string {
-	if currentAllowedOrigin == "" {
-		InitServerState()
-	}
-	return currentAllowedOrigin
 }
 
 func EmitLog(ctx context.Context, level, message string) {
@@ -105,19 +83,17 @@ func StartServer(ctx context.Context) {
 	if activeServer != nil {
 		EmitLog(ctx, "INFO", "Stopping existing server...")
 		activeServer.Shutdown(context.Background())
-		time.Sleep(200 * time.Millisecond) // Let port release
+		time.Sleep(200 * time.Millisecond)
 	}
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Recovery())
-	router.Use(middleware.CorsMiddleware(currentAllowedOrigin))
+	router.Use(middleware.CorsMiddleware())
 
-	// Auth Middleware
 	router.Use(func(c *gin.Context) {
 		if currentAppKey != "" && c.Request.Method != "OPTIONS" {
 			reqKey := c.GetHeader("App-Key")
-			// Use constant time compare to prevent timing attacks
 			if subtle.ConstantTimeCompare([]byte(reqKey), []byte(currentAppKey)) != 1 {
 				EmitLog(ctx, "ERROR", fmt.Sprintf("Unauthorized access attempt from %s (Invalid App-Key)", c.ClientIP()))
 				c.JSON(401, gin.H{"error": "Unauthorized: Invalid App-Key"})

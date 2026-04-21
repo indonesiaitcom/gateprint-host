@@ -74,14 +74,6 @@ func (a *App) SetServerPort(port string) {
 	server.SetServerPort(port)
 }
 
-func (a *App) GetAllowedOrigin() string {
-	return server.GetAllowedOrigin()
-}
-
-func (a *App) SetAllowedOrigin(origin string) {
-	server.SetAllowedOrigin(origin)
-}
-
 // Show the application window
 func (a *App) Show() {
 	if a.ctx != nil {
