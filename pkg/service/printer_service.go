@@ -35,6 +35,22 @@ func initPrinterState() {
 		config.InitStore()
 		data := config.LoadData()
 		defaultPrinterName = data.DefaultPrinter
+		
+		if defaultPrinterName == "" {
+			if defPrinter, err := printer.Default(); err == nil && defPrinter != "" {
+				defaultPrinterName = defPrinter
+				data.DefaultPrinter = defaultPrinterName
+				config.SaveData(data)
+			} else {
+				names, err := printer.ReadNames()
+				if err == nil && len(names) > 0 {
+					defaultPrinterName = names[0]
+					data.DefaultPrinter = defaultPrinterName
+					config.SaveData(data)
+				}
+			}
+		}
+		
 		isPrinterInitialized = true
 	}
 }

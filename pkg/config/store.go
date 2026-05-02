@@ -18,9 +18,16 @@ var dataFilePath = "thermal_data.json"
 
 // InitStore ensures the data file exists or gets the path
 func InitStore() {
-	execPath, err := os.Executable()
+	configDir, err := os.UserConfigDir()
 	if err == nil {
-		dataFilePath = filepath.Join(filepath.Dir(execPath), "thermal_data.json")
+		appConfigDir := filepath.Join(configDir, "GatePrint")
+		os.MkdirAll(appConfigDir, 0755)
+		dataFilePath = filepath.Join(appConfigDir, "thermal_data.json")
+	} else {
+		execPath, err := os.Executable()
+		if err == nil {
+			dataFilePath = filepath.Join(filepath.Dir(execPath), "thermal_data.json")
+		}
 	}
 }
 
