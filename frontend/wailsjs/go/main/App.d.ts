@@ -3,6 +3,8 @@
 
 export function GetAppKey():Promise<string>;
 
+export function GetAutoStart():Promise<boolean>;
+
 export function GetPrinters():Promise<Array<string>>;
 
 export function GetSelectedPrinter():Promise<string>;
@@ -14,6 +16,8 @@ export function PrintTest(arg1:string):Promise<void>;
 export function Quit():Promise<void>;
 
 export function SetAppKey(arg1:string):Promise<void>;
+
+export function SetAutoStart(arg1:boolean):Promise<void>;
 
 export function SetSelectedPrinter(arg1:string):Promise<void>;
 

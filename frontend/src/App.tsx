@@ -8,6 +8,8 @@ import {
   SetAppKey,
   GetServerPort,
   SetServerPort,
+  GetAutoStart,
+  SetAutoStart,
 } from "../wailsjs/go/main/App";
 import { EventsOn } from "../wailsjs/runtime/runtime";
 import "./App.css";
@@ -18,6 +20,7 @@ function App() {
   const [appKey, setAppKeyState] = useState("");
   const [showAppKey, setShowAppKey] = useState(false);
   const [serverPort, setServerPortState] = useState("");
+  const [autoStart, setAutoStart] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -43,6 +46,9 @@ function App() {
 
       const port = await GetServerPort();
       setServerPortState(port || "9100");
+
+      const auto = await GetAutoStart();
+      setAutoStart(auto);
 
       const p = await GetPrinters();
       setPrinters(p || []);
@@ -88,6 +94,23 @@ function App() {
       showMessage("Port updated!", false);
     } catch (e: any) {
       showMessage("Error: " + e, true);
+    }
+  };
+
+  const handleToggleAutoStart = async () => {
+    try {
+      const newValue = !autoStart;
+      await SetAutoStart(newValue);
+      setAutoStart(newValue);
+      showMessage(
+        newValue
+          ? "Auto-start enabled - app will run on Windows startup"
+          : "Auto-start disabled - manual start required",
+        false
+      );
+    } catch (e: any) {
+      showMessage("Error: " + e, true);
+      setAutoStart(!autoStart);
     }
   };
 
@@ -193,6 +216,15 @@ function App() {
                 ))}
               </select>
             </div>
+
+            <label className="checkbox-field">
+              <input
+                type="checkbox"
+                checked={autoStart}
+                onChange={handleToggleAutoStart}
+              />
+              <span>Start automatically when Windows starts</span>
+            </label>
 
             <button className="btn-primary" onClick={handleTestPrint}>
               Test Print Connection

@@ -6,6 +6,10 @@ export function GetAppKey() {
   return window['go']['main']['App']['GetAppKey']();
 }
 
+export function GetAutoStart() {
+  return window['go']['main']['App']['GetAutoStart']();
+}
+
 export function GetPrinters() {
   return window['go']['main']['App']['GetPrinters']();
 }
@@ -28,6 +32,10 @@ export function Quit() {
 
 export function SetAppKey(arg1) {
   return window['go']['main']['App']['SetAppKey'](arg1);
+}
+
+export function SetAutoStart(arg1) {
+  return window['go']['main']['App']['SetAutoStart'](arg1);
 }
 
 export function SetSelectedPrinter(arg1) {

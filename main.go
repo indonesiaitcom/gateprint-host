@@ -2,8 +2,10 @@ package main
 
 import (
 	"embed"
+	"flag"
 
 	"github.com/getlantern/systray"
+	"github.com/mkhsnw/gateprint/pkg/windows"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
@@ -16,7 +18,12 @@ var assets embed.FS
 var iconData []byte
 
 func main() {
+	startHidden := flag.Bool("hidden", false, "Start app hidden in tray")
+	flag.Parse()
+
 	app := NewApp()
+
+	windows.HideConsoleWindow()
 
 	go func() {
 		systray.Run(func() {
@@ -24,12 +31,12 @@ func main() {
 			systray.SetTitle("Gateprint")
 			systray.SetTooltip("Gateprint API is running")
 
-			mOpen := systray.AddMenuItem("Show Window", "Show the Desktop UI")
+			mShow := systray.AddMenuItem("Show Window", "Show the Desktop UI")
 			mQuit := systray.AddMenuItem("Quit", "Stop the server and quit")
 
 			for {
 				select {
-				case <-mOpen.ClickedCh:
+				case <-mShow.ClickedCh:
 					app.Show()
 				case <-mQuit.ClickedCh:
 					systray.Quit()
@@ -37,16 +44,15 @@ func main() {
 				}
 			}
 		}, func() {
-			// On exit
 		})
 	}()
 
-	// Create application with options
 	err := wails.Run(&options.App{
 		Title:             "Gateprint",
 		Width:             600,
 		Height:            800,
-		HideWindowOnClose: true, 
+		HideWindowOnClose: true,
+		StartHidden:       *startHidden,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

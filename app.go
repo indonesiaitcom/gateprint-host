@@ -8,6 +8,7 @@ import (
 	"github.com/mkhsnw/gateprint/pkg/entity"
 	"github.com/mkhsnw/gateprint/pkg/server"
 	"github.com/mkhsnw/gateprint/pkg/service"
+	"github.com/mkhsnw/gateprint/pkg/windows"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -72,6 +73,17 @@ func (a *App) GetServerPort() string {
 
 func (a *App) SetServerPort(port string) {
 	server.SetServerPort(port)
+}
+
+func (a *App) GetAutoStart() bool {
+	return windows.IsAutoStartEnabled()
+}
+
+func (a *App) SetAutoStart(enabled bool) error {
+	if enabled {
+		return windows.EnableAutoStart()
+	}
+	return windows.DisableAutoStart()
 }
 
 // Show the application window
