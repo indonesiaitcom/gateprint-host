@@ -12,6 +12,9 @@ type AppData struct {
 	DefaultPrinter string `json:"default_printer"`
 	ServerPort     string `json:"server_port"`
 	AllowedOrigin  string `json:"allowed_origin"`
+	// ListenLocal binds the HTTP server to 127.0.0.1 only when true.
+	// Default (false) keeps the original behaviour of listening on all interfaces.
+	ListenLocal bool `json:"listen_local,omitempty"`
 }
 
 var dataFilePath = "thermal_data.json"

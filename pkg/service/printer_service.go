@@ -71,6 +71,7 @@ func GetDefaultPrinter() string {
 }
 
 func ExecutePrint(job entity.PrintJob) error {
+	initPrinterState()
 
 	if job.PrinterName == "" {
 		if defaultPrinterName != "" {
@@ -113,6 +114,10 @@ func ExecutePrint(job entity.PrintJob) error {
 			if v, ok := cmd.Value.(bool); ok {
 				cmdErr = esc.Underline(v)
 			}
+		case "bold":
+			cmdErr = handleBold(pDev, cmd.Value)
+		case "raw":
+			cmdErr = handleRaw(pDev, cmd.Value)
 		case "imageUrl":
 			cmdErr = handleImageUrl(pDev, esc, fmt.Sprintf("%v", cmd.Value))
 		case "image":
@@ -283,4 +288,40 @@ func handleDataMatrix(esc *escpos.Printer, val interface{}) error {
 		return esc.DataMatrix(fmt.Sprintf("%v", v["content"]), size)
 	}
 	return esc.DataMatrix(fmt.Sprintf("%v", val), 3)
+}
+
+// handleBold toggles emphasized mode (ESC E n). Accepts a JSON bool;
+// any other value type is rejected so callers notice malformed payloads.
+func handleBold(pDev *printer.Printer, val interface{}) error {
+	on, ok := val.(bool)
+	if !ok {
+		return fmt.Errorf("bold value must be a boolean")
+	}
+	var n byte
+	if on {
+		n = 1
+	}
+	_, err := pDev.Write([]byte{0x1B, 0x45, n})
+	return err
+}
+
+// handleRaw writes base64-encoded ESC/POS bytes to the printer unchanged.
+// A "data:...;base64," prefix is tolerated.
+func handleRaw(pDev *printer.Printer, val interface{}) error {
+	b64Data, ok := val.(string)
+	if !ok {
+		return fmt.Errorf("raw value must be a base64 string")
+	}
+	if idx := strings.Index(b64Data, "base64,"); idx != -1 {
+		b64Data = b64Data[idx+7:]
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(b64Data))
+	if err != nil {
+		return fmt.Errorf("failed to decode raw base64: %v", err)
+	}
+	if len(data) == 0 {
+		return nil
+	}
+	_, err = pDev.Write(data)
+	return err
 }

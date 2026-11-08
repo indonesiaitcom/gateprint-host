@@ -18,6 +18,7 @@ import (
 
 var currentAppKey string
 var currentServerPort string
+var currentListenLocal bool
 var activeServer *http.Server
 var appCtx context.Context
 
@@ -26,6 +27,7 @@ func InitServerState() {
 	data := config.LoadData()
 	currentAppKey = data.AppKey
 	currentServerPort = data.ServerPort
+	currentListenLocal = data.ListenLocal
 	if currentServerPort == "" {
 		currentServerPort = "9100"
 	}
@@ -128,12 +130,18 @@ func StartServer(ctx context.Context) {
 		c.JSON(200, gin.H{"message": "Success"})
 	})
 
+	host := ""
+	if currentListenLocal {
+		host = "127.0.0.1"
+	}
+	addr := host + ":" + port
+
 	activeServer = &http.Server{
-		Addr:    ":" + port,
+		Addr:    addr,
 		Handler: router,
 	}
 
-	EmitLog(ctx, "INFO", "Gateprint server started on port :"+port)
+	EmitLog(ctx, "INFO", "Gateprint server started on "+addr)
 	go func() {
 		if err := activeServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			EmitLog(ctx, "ERROR", fmt.Sprintf("Failed to start server: %v", err))
